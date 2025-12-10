@@ -1,12 +1,13 @@
 import { produce } from 'immer';
-import { LucideIcon, Bot, Beaker, Brush, Scale, Lightbulb, ThumbsDown, Smile, Hammer } from 'lucide-react';
+import { LucideIcon, Bot, Beaker, Brush } from 'lucide-react';
 export type AgentRole = 'Primary' | 'Observer';
 export type AgentStatus = 'Ready' | 'Thinking' | 'Paused' | 'Has Feedback';
 export type AgentParticipation = 'Always' | 'Relevant' | 'OnDemand';
 export interface Agent {
   id: string;
   name: string;
-  icon: string; // LucideIcon name as string for serialization
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any; // LucideIcon name as string for serialization
   color: string; // Tailwind bg color class
   personality: string;
   systemPrompt?: string;
@@ -22,7 +23,6 @@ export interface Agent {
     participation: AgentParticipation;
   };
 }
-export type AgentTemplate = Omit<Agent, 'id' | 'status' | 'isActive' | 'role'> & { templateId: string };
 const STORAGE_KEY = 'conclave:agents';
 export const getAgents = (): Agent[] => {
   try {
@@ -45,10 +45,13 @@ export const saveAgents = (agents: Agent[]): void => {
     console.error('Failed to save agents to localStorage:', error);
   }
 };
-export const createAgent = (newAgent: Omit<Agent, 'id'>): Agent => {
+export const createAgent = (newAgent: Omit<Agent, 'id' | 'status' | 'isActive' | 'role'>): Agent => {
   const agent: Agent = {
     ...newAgent,
     id: crypto.randomUUID(),
+    status: 'Ready',
+    isActive: true,
+    role: 'Observer',
   };
   const agents = getAgents();
   saveAgents([...agents, agent]);
@@ -127,37 +130,16 @@ export const defaultAgents = (): Agent[] => [
     },
   },
 ];
-export const TEMPLATE_PRESETS: AgentTemplate[] = [
-  { templateId: 'researcher', name: 'Researcher', icon: 'Beaker', color: 'bg-green-500', personality: 'Fact-focused, provides data and evidence.', model: 'google-ai-studio/gemini-2.5-pro', config: { formality: 70, detail: 80, approach: 30, creativity: 10, participation: 'Relevant' } },
-  { templateId: 'analyst', name: 'Analyst', icon: 'Scale', color: 'bg-sky-500', personality: 'Data-driven and strategic, identifies trends.', model: 'google-ai-studio/gemini-2.5-pro', config: { formality: 80, detail: 70, approach: 20, creativity: 20, participation: 'Relevant' } },
-  { templateId: 'creative', name: 'Creative', icon: 'Lightbulb', color: 'bg-amber-500', personality: 'Generates out-of-the-box ideas.', model: 'google-ai-studio/gemini-2.5-flash', config: { formality: 20, detail: 60, approach: 80, creativity: 90, participation: 'Relevant' } },
-  { templateId: 'critic', name: 'Critic', icon: 'ThumbsDown', color: 'bg-rose-500', personality: 'Plays devil\'s advocate, assesses risks.', model: 'google-ai-studio/gemini-2.5-flash', config: { formality: 60, detail: 50, approach: 90, creativity: 30, participation: 'Relevant' } },
-  { templateId: 'optimist', name: 'Optimist', icon: 'Smile', color: 'bg-yellow-400', personality: 'Provides positive perspectives and encouragement.', model: 'google-ai-studio/gemini-2.5-flash', config: { formality: 30, detail: 40, approach: 70, creativity: 60, participation: 'Relevant' } },
-  { templateId: 'pragmatist', name: 'Pragmatist', icon: 'Hammer', color: 'bg-gray-500', personality: 'Focuses on practical solutions and implementation.', model: 'google-ai-studio/gemini-2.5-flash', config: { formality: 50, detail: 70, approach: 40, creativity: 20, participation: 'Relevant' } },
-];
-export const getAgentTemplates = (): AgentTemplate[] => TEMPLATE_PRESETS;
-export const loadAgentTemplate = (templateId: string): Agent | null => {
-  const template = TEMPLATE_PRESETS.find(p => p.templateId === templateId);
-  if (!template) return null;
-  const { templateId: _, ...rest } = template;
-  return {
-    ...rest,
-    id: crypto.randomUUID(),
-    status: 'Ready',
-    isActive: true,
-    role: 'Observer',
+export const getAgentIcon = (iconName: string): LucideIcon => {
+  const icons: { [key: string]: LucideIcon } = {
+    Bot,
+    Beaker,
+    Brush,
   };
+  return icons[iconName] || Bot;
 };
 export const agentIcons: { [key: string]: LucideIcon } = {
   Bot,
   Beaker,
   Brush,
-  Scale,
-  Lightbulb,
-  ThumbsDown,
-  Smile,
-  Hammer,
-};
-export const getAgentIcon = (iconName: string): LucideIcon => {
-  return agentIcons[iconName] || Bot;
 };

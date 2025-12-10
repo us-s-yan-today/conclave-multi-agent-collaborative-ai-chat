@@ -13,11 +13,11 @@ interface AgentCardProps {
 const StatusIndicator = ({ status }: { status: Agent['status'] }) => {
   switch (status) {
     case 'Ready':
-      return <CheckCircle className="w-3 h-3 text-green-500" />;
+      return <CheckCircle className="w-3 h-3 text-green-500" title="Ready" />;
     case 'Thinking':
-      return <BrainCircuit className="w-3 h-3 text-yellow-500 animate-pulse" />;
+      return <BrainCircuit className="w-3 h-3 text-yellow-500 animate-pulse" title="Thinking" />;
     case 'Paused':
-      return <CircleDashed className="w-3 h-3 text-muted-foreground" />;
+      return <CircleDashed className="w-3 h-3 text-muted-foreground" title="Paused" />;
     default:
       return null;
   }
@@ -44,7 +44,7 @@ export function AgentCard({ agent, onEdit, onDelete, onPromote }: AgentCardProps
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 focus:ring-2 focus:ring-ring">
+          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
             <MoreVertical className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
