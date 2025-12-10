@@ -15,7 +15,7 @@ Conclave is a polished, browser-based multi-agent AI chat application that simul
 
 Conclave eliminates setup complexity while delivering the benefits of collaborative AI, like diverse perspectives in natural group conversations.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/us-s-yan-today/conclave-multi-agent-collaborative-ai-chat)
 
 ## Technology Stack
 
@@ -131,7 +131,7 @@ The app will be live at `<project-name>.workers.dev`. Monitor via Cloudflare das
 
 For one-click deployment:
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/us-s-yan-today/conclave-multi-agent-collaborative-ai-chat)
 
 ### Production Notes
 
