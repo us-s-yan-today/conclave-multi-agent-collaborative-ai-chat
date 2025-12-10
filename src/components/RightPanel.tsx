@@ -73,9 +73,9 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
           <Card className="flex-1 flex flex-col min-h-0">
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MessageSquareQuote className="w-5 h-5" />Context</CardTitle></CardHeader>
             <CardContent className="flex-1 flex flex-col gap-4 min-h-0 text-sm">
-              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2">Live Summary</h3><ScrollArea className="flex-1 bg-muted/50 rounded-md p-3 text-muted-foreground">{isSummarizing && !summary ? <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /><Skeleton className="h-4 w-3/4" /></div> : <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>{summary || 'Auto-summary will appear here.'}</motion.p>}</ScrollArea></div>
+              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2">Live Summary</h3><ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 text-muted-foreground">{isSummarizing && !summary ? <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /><Skeleton className="h-4 w-3/4" /></div> : <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>{summary || 'Auto-summary will appear here.'}</motion.p>}</ScrollArea></div>
               <Separator />
-              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2 flex items-center gap-2"><ListTodo className="w-4 h-4" />Action Items</h3>{actionItems.length > 0 ? <ScrollArea className="flex-1 bg-muted/50 rounded-md p-3 space-y-2">{actionItems.map((item, index) => (<div key={index} className="flex items-center gap-2"><span>{item}</span></div>))}</ScrollArea> : <div className="text-muted-foreground text-center py-4 bg-muted/50 rounded-md">No action items.</div>}</div>
+              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2 flex items-center gap-2"><ListTodo className="w-4 h-4" />Action Items</h3>{actionItems.length > 0 ? <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 space-y-2">{actionItems.map((item, index) => (<div key={index} className="flex items-center gap-2"><span>{item}</span></div>))}</ScrollArea> : <div className="text-muted-foreground text-center py-4 bg-muted/50 rounded-md">No action items.</div>}</div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -91,7 +91,7 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
               <Card>
                 <CardHeader><CardTitle className="text-lg">Agent Participation</CardTitle></CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={180}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie data={analytics.agentUsageData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>{analytics.agentUsageData.map((entry, index) => <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${index + 1}))`} />)}</Pie>
                       <Tooltip />

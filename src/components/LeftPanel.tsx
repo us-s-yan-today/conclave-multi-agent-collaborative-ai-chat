@@ -35,7 +35,7 @@ export function LeftPanel({
         <h1 className="text-2xl font-bold font-display text-gradient">Conclave</h1>
         <p className="text-sm text-muted-foreground">Multi-Agent Collaborative AI</p>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-6">
           <div>
             <div className="flex justify-between items-center mb-2">
