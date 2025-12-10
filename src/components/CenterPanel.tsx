@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LeftPanel } from '@/components/LeftPanel';
 import { RightPanel } from '@/components/RightPanel';
-import { Menu, Users, Send, User, AlertTriangle, X, MessageSquare, FileDown, Lock } from 'lucide-react';
+import { Menu, Users, Send, User, AlertTriangle, X, MessageSquare, FileDown, Lock, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/chat';
 import { Skeleton } from './ui/skeleton';
@@ -35,6 +35,7 @@ interface CenterPanelProps {
   handleSubmit: (e: FormEvent) => void;
   setInput: (input: string) => void;
   isShareMode: boolean;
+  onRetry: (messageId: string) => void;
 }
 export function CenterPanel({
   isMobile,
@@ -57,8 +58,12 @@ export function CenterPanel({
   handleSubmit,
   setInput,
   isShareMode,
+  onRetry,
 }: CenterPanelProps) {
   const currentSession = sessions.find(s => s.id === currentSessionId);
+  const activeAgents = agents.filter(a => a.isActive);
+  const primaryAgent = activeAgents.find(a => a.role === 'Primary');
+  const observerAgents = activeAgents.filter(a => a.role === 'Observer');
   return (
     <main className="flex flex-col h-full bg-background border rounded-lg">
       <header className="p-4 border-b flex items-center justify-between flex-shrink-0">
@@ -72,7 +77,7 @@ export function CenterPanel({
             </Sheet>
           )}
           <div className="flex items-center -space-x-2">
-            {agents.filter(a => a.isActive).slice(0, 3).map(a => (
+            {activeAgents.slice(0, 3).map(a => (
               <div key={a.id} className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-background ${a.color}`}>{a.name.charAt(0)}</div>
             ))}
           </div>
@@ -86,7 +91,7 @@ export function CenterPanel({
             <Sheet>
               <SheetTrigger asChild><Button variant="ghost" size="icon"><Users className="w-5 h-5" /></Button></SheetTrigger>
               <SheetContent side="right" className="p-0 w-full max-w-xs">
-                <RightPanel agents={agents} messages={messages} />
+                <RightPanel agents={agents} messages={messages} onRetrySummary={() => {}} />
               </SheetContent>
             </Sheet>
           )}
@@ -105,9 +110,10 @@ export function CenterPanel({
             {messages.map((msg) => (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0", msg.agentColor || 'bg-gray-400')}>{msg.agentName?.charAt(0) || 'A'}</div>}
-                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none dark:bg-primary/90' : 'bg-muted rounded-bl-none dark:bg-muted/80'}`}>
+                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.isError ? 'bg-destructive/10 border border-destructive/20' : (msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none dark:bg-primary/90' : 'bg-muted rounded-bl-none dark:bg-muted/80')}`}>
                   {msg.role === 'assistant' && <p className="font-bold text-sm mb-1">{msg.agentName}</p>}
                   <p className="whitespace-pre-wrap">{msg.content}{isProcessing && messages[messages.length - 1].id === msg.id ? <span className="stream-cursor" /> : ''}</p>
+                  {msg.isError && <Button variant="outline" size="sm" onClick={() => onRetry(msg.id)} className="mt-2"><RotateCcw className="w-3 h-3 mr-2" />Retry</Button>}
                   <p className="text-xs opacity-60 text-right mt-2">{formatTime(msg.timestamp)}</p>
                 </div>
                 {msg.role === 'user' && <User className="w-8 h-8 p-1.5 rounded-full bg-muted text-muted-foreground flex-shrink-0" />}
@@ -117,7 +123,10 @@ export function CenterPanel({
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 justify-start">
                 <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
                 <div className="max-w-[85%] w-full space-y-2">
-                  <Skeleton className="h-4 w-1/4" />
+                  <div className="flex items-center gap-2">
+                    {primaryAgent && <Badge variant="secondary">{primaryAgent.name} thinking...</Badge>}
+                    {observerAgents.length > 0 && <Badge variant="outline">Observers waiting...</Badge>}
+                  </div>
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
                 </div>
@@ -139,7 +148,9 @@ export function CenterPanel({
           <div className="relative">
             {isShareMode && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-                <Badge variant="secondary"><Lock className="w-3 h-3 mr-2" />Read-Only Mode</Badge>
+                <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                  <Badge variant="secondary"><Lock className="w-3 h-3 mr-2" />Read-Only Mode</Badge>
+                </motion.div>
               </div>
             )}
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }} placeholder="Message your AI team..." className="pr-12 min-h-[48px] max-h-48 resize-none focus:ring-2 focus:ring-ring focus:border-ring" rows={1} disabled={isProcessing || isShareMode} />

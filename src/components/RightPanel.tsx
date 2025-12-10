@@ -3,27 +3,29 @@ import { motion } from 'framer-motion';
 import { Agent } from '@/lib/agents';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, CheckCircle, CircleDashed, MessageSquareQuote, ListTodo, BrainCircuit, BarChart2 } from 'lucide-react';
+import { Bot, CheckCircle, CircleDashed, MessageSquareQuote, ListTodo, BrainCircuit, BarChart2, AlertTriangle } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { chatService, ExtendedMessage, getUsageMetrics } from '@/lib/chat';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { Button } from './ui/button';
 interface RightPanelProps {
   agents: Agent[];
   messages: ExtendedMessage[];
+  onRetrySummary: () => void;
 }
 const StatusIndicator = ({ status }: { status: Agent['status'] }) => {
   switch (status) {
     case 'Ready': return <CheckCircle className="w-4 h-4 text-green-500" />;
     case 'Thinking': return <BrainCircuit className="w-4 h-4 text-yellow-500 animate-pulse" />;
-    case 'Paused': return <CircleDashed className="w-4 h-4 text-muted-foreground" />;
+    case 'Paused': return <AlertTriangle className="w-4 h-4 text-red-500" />;
     case 'Has Feedback': return <MessageSquareQuote className="w-4 h-4 text-blue-500" />;
-    default: return null;
+    default: return <CircleDashed className="w-4 h-4 text-muted-foreground" />;
   }
 };
-export function RightPanel({ agents, messages }: RightPanelProps) {
+export function RightPanel({ agents, messages, onRetrySummary }: RightPanelProps) {
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   useEffect(() => {
@@ -34,6 +36,7 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
         setIsSummarizing(true);
         chatService.summarizeConversation(messages.slice(-5))
           .then(setSummary)
+          .catch(err => setSummary(`Error generating summary: ${err.message.slice(0, 50)}`))
           .finally(() => setIsSummarizing(false));
       }
     }
@@ -49,6 +52,7 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
     }));
     return { ...metrics, agentUsageData };
   }, [messages, agents]);
+  const hasSummaryError = summary.toLowerCase().startsWith('error');
   return (
     <aside className="hidden md:flex flex-col gap-6 h-full p-4 bg-muted/30 rounded-lg">
       <Tabs defaultValue="status" className="flex-1 flex flex-col min-h-0">
@@ -73,7 +77,13 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
           <Card className="flex-1 flex flex-col min-h-0">
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MessageSquareQuote className="w-5 h-5" />Context</CardTitle></CardHeader>
             <CardContent className="flex-1 flex flex-col gap-4 min-h-0 text-sm">
-              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2">Live Summary</h3><ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 text-muted-foreground">{isSummarizing && !summary ? <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /><Skeleton className="h-4 w-3/4" /></div> : <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>{summary || 'Auto-summary will appear here.'}</motion.p>}</ScrollArea></div>
+              <div className="flex-1 flex flex-col min-h-0">
+                <h3 className="font-semibold mb-2">Live Summary</h3>
+                <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 text-muted-foreground">
+                  {isSummarizing && !summary ? <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /><Skeleton className="h-4 w-3/4" /></div> : <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>{summary || 'Auto-summary will appear here.'}</motion.p>}
+                </ScrollArea>
+                {hasSummaryError && <Button variant="outline" size="sm" onClick={onRetrySummary} className="mt-2 w-full">Retry Summary</Button>}
+              </div>
               <Separator />
               <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2 flex items-center gap-2"><ListTodo className="w-4 h-4" />Action Items</h3>{actionItems.length > 0 ? <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 space-y-2">{actionItems.map((item, index) => (<div key={index} className="flex items-center gap-2"><span>{item}</span></div>))}</ScrollArea> : <div className="text-muted-foreground text-center py-4 bg-muted/50 rounded-md">No action items.</div>}</div>
             </CardContent>

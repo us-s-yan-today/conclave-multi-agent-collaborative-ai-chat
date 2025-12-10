@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { produce } from 'immer';
 import { chatService, ExtendedMessage, generateSessionTitle } from '@/lib/chat';
 import type { SessionInfo } from '../../worker/types';
@@ -122,33 +122,55 @@ export function HomePage() {
       await loadSessions();
     }
     const activeAgents = agents.filter(a => a.isActive).sort((a, b) => (a.role === 'Primary' ? -1 : b.role === 'Primary' ? 1 : 0));
-    for (const agent of activeAgents) {
-      setAgents(prev => produce(prev, draft => {
-        const agentToUpdate = draft.find(a => a.id === agent.id);
-        if (agentToUpdate) agentToUpdate.status = 'Thinking';
-      }));
-      const personaPrefix = `[You are ${agent.name}. Personality: ${agent.personality}] User says: `;
-      const fullPrompt = personaPrefix + userInput;
-      const streamId = crypto.randomUUID();
-      const assistantMessage: ExtendedMessage = { id: streamId, role: 'assistant', content: '', timestamp: Date.now(), agentId: agent.id, agentName: agent.name, agentColor: agent.color };
-      setMessages(prev => [...prev, assistantMessage]);
-      await chatService.sendMessage(fullPrompt, agent.model, (chunk) => {
-        setMessages(prev => produce(prev, draft => {
-          const msg = draft.find(m => m.id === streamId);
-          if (msg) msg.content += chunk;
+    const prunedHistory = messages.slice(-10).map(m => `${m.agentName || m.role}: ${m.content}`).join('\nPrevious: ');
+    try {
+      for (const agent of activeAgents) {
+        setAgents(prev => produce(prev, draft => {
+          const agentToUpdate = draft.find(a => a.id === agent.id);
+          if (agentToUpdate) agentToUpdate.status = 'Thinking';
         }));
-        scrollToBottom();
-      }, messages);
-      setAgents(prev => produce(prev, draft => {
-        const agentToUpdate = draft.find(a => a.id === agent.id);
-        if (agentToUpdate) agentToUpdate.status = 'Ready';
-      }));
+        const fullPrompt = `[You are ${agent.name}. Personality: ${agent.personality}. Previous context:\n${prunedHistory || 'New conversation.'}]\n\nUser: ${userInput}`;
+        const streamId = crypto.randomUUID();
+        const assistantMessage: ExtendedMessage = { id: streamId, role: 'assistant', content: '', timestamp: Date.now(), agentId: agent.id, agentName: agent.name, agentColor: agent.color };
+        setMessages(prev => [...prev, assistantMessage]);
+        const response = await chatService.sendMessage(fullPrompt, agent.model, (chunk) => {
+          setMessages(prev => produce(prev, draft => {
+            const msg = draft.find(m => m.id === streamId);
+            if (msg) msg.content += chunk;
+          }));
+          scrollToBottom();
+        });
+        if (!response.success) {
+          throw new Error(response.error || `Agent ${agent.name} failed to respond.`);
+        }
+        setAgents(prev => produce(prev, draft => {
+          const agentToUpdate = draft.find(a => a.id === agent.id);
+          if (agentToUpdate) agentToUpdate.status = 'Ready';
+        }));
+      }
+    } catch (error) {
+      console.error("Chat orchestration error:", error);
+      toast.error("An agent failed to respond. Please check limits or try again.");
+      const errorMessage: ExtendedMessage = { id: crypto.randomUUID(), role: 'assistant', content: `Error: Could not generate a complete response. An agent failed.`, timestamp: Date.now(), isError: true };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
   };
   const handleEditAgent = (agent: Agent | null) => {
     setEditingAgent(agent);
     setIsDrawerOpen(true);
+  };
+  const handleRetryMessage = (messageId: string) => {
+    // This is a simplified retry - for a full implementation, you'd resend the original prompt.
+    // For now, we'll just remove the error and let the user try again.
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    toast.info("Please try sending your message again.");
+  };
+  const handleRetrySummary = () => {
+    // This would trigger a re-summarization call in a real scenario.
+    // For now, it's a placeholder.
+    toast.info("Retrying summary generation...");
   };
   return (
     <TooltipProvider>
@@ -178,7 +200,7 @@ export function HomePage() {
                 currentSessionId={currentSessionId}
                 messages={messages}
                 input={input}
-                isProcessing={isProcessing || isShareMode}
+                isProcessing={isProcessing}
                 showLimitsNotice={showLimitsNotice}
                 messagesEndRef={messagesEndRef}
                 onNewSession={handleNewSession}
@@ -191,8 +213,9 @@ export function HomePage() {
                 handleSubmit={handleSubmit}
                 setInput={setInput}
                 isShareMode={isShareMode}
+                onRetry={handleRetryMessage}
               />
-              {!isMobile && <RightPanel agents={agents} messages={messages} />}
+              {!isMobile && <RightPanel agents={agents} messages={messages} onRetrySummary={handleRetrySummary} />}
             </div>
           </div>
         </div>

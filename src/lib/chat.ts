@@ -5,12 +5,13 @@ export interface ChatResponse {
   data?: ChatState;
   error?: string;
 }
-export type ExtendedMessage = Message & { agentId?: string; agentName?: string; agentColor?: string; };
+export type ExtendedMessage = Message & { id: string; agentId?: string; agentName?: string; agentColor?: string; isError?: boolean; };
 export const MODELS = [
   { id: 'google-ai-studio/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
   { id: 'google-ai-studio/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
   { id: 'google-ai-studio/gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
 ];
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 class ChatService {
   private sessionId: string;
   private baseUrl: string;
@@ -21,43 +22,45 @@ class ChatService {
   async sendMessage(
     message: string,
     model?: string,
-    onChunk?: (chunk: string) => void,
-    history?: Message[]
+    onChunk?: (chunk: string) => void
   ): Promise<ChatResponse> {
-    try {
-      let conversationHistory = history || [];
-      if (conversationHistory.length > 20) {
-        console.log('Pruning conversation history to last 10 messages.');
-        conversationHistory = conversationHistory.slice(-10);
-      }
-      const response = await fetch(`${this.baseUrl}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, model, stream: !!onChunk, history: conversationHistory }),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      if (onChunk && response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            if (chunk) onChunk(chunk);
-          }
-        } finally {
-          reader.releaseLock();
+    const MAX_RETRIES = 2;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(`${this.baseUrl}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, model, stream: !!onChunk }), // REMOVED history from body
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown server error'}`);
         }
-        return { success: true };
+        if (onChunk && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              if (chunk) onChunk(chunk);
+            }
+          } finally {
+            reader.releaseLock();
+          }
+          return { success: true };
+        }
+        return await response.json();
+      } catch (error) {
+        console.error(`Failed to send message (attempt ${attempt}/${MAX_RETRIES}):`, error);
+        if (attempt === MAX_RETRIES) {
+          return { success: false, error: error instanceof Error ? error.message : 'Failed to send message' };
+        }
+        await delay(100 * attempt); // Exponential backoff
       }
-      return await response.json();
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      return { success: false, error: 'Failed to send message' };
     }
+    return { success: false, error: 'Failed to send message after multiple retries.' };
   }
   async getMessages(): Promise<ChatResponse> {
     try {
@@ -153,6 +156,9 @@ class ChatService {
     }
   }
   async exportConversation(messages: ExtendedMessage[], format: 'json' | 'text' | 'markdown'): Promise<string> {
+    if (!messages || messages.length === 0) {
+      return 'No messages to export.';
+    }
     return new Promise((resolve) => {
       switch (format) {
         case 'json':
@@ -179,10 +185,10 @@ class ChatService {
       if (response.success && response.data?.messages) {
         return response.data.messages[response.data.messages.length - 1].content;
       }
-      return "Could not generate summary.";
+      throw new Error(response.error || "Could not generate summary.");
     } catch (error) {
       console.error("Summarization failed:", error);
-      return "Summarization failed.";
+      return "Summary unavailable - conversation in progress.";
     }
   }
 }
