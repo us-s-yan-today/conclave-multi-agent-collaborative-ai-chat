@@ -1,24 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, User, Send, Plus, Trash2, Settings, Menu, X, AlertTriangle, MessageSquare, Users, Star } from 'lucide-react';
+import { Bot, User, Send, Plus, Trash2, Menu, X, AlertTriangle, MessageSquare, Users, Star, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Toaster, toast } from 'sonner';
 import { produce } from 'immer';
-import { chatService, formatTime } from '@/lib/chat';
+import { chatService, formatTime, ExtendedMessage } from '@/lib/chat';
 import type { SessionInfo } from '../../worker/types';
-import type { Message } from '../../worker/types';
-import { Agent, getAgents, saveAgents, updateAgent, deleteAgent, defaultAgents } from '@/lib/agents';
+import { Agent, getAgents, saveAgents, deleteAgent, loadAgentTemplate, getAgentTemplates, createAgent } from '@/lib/agents';
 import { AgentCard } from '@/components/AgentCard';
 import { AgentConfigDrawer } from '@/components/AgentConfigDrawer';
 import { RightPanel } from '@/components/RightPanel';
+import { ExportModal } from '@/components/ExportModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-type ExtendedMessage = Message & { agentId?: string; agentName?: string; agentColor?: string; };
 export function HomePage() {
   const [agents, setAgents] = useState<Agent[]>(getAgents);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -29,27 +27,14 @@ export function HomePage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [showLimitsNotice, setShowLimitsNotice] = useState(true);
+  const [showExportModal, setShowExportModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   useEffect(scrollToBottom, [messages]);
-  const loadSessions = useCallback(async () => {
-    const res = await chatService.listSessions();
-    if (res.success && res.data) {
-      setSessions(res.data);
-      if (!currentSessionId && res.data.length > 0) {
-        handleSwitchSession(res.data[0].id);
-      } else if (!currentSessionId && res.data.length === 0) {
-        handleNewSession();
-      }
-    }
-  }, [currentSessionId]);
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
-  const handleNewSession = async () => {
+  const handleNewSession = useCallback(async () => {
     const res = await chatService.createSession();
     if (res.success && res.data) {
       chatService.switchSession(res.data.sessionId);
@@ -57,8 +42,8 @@ export function HomePage() {
       setMessages([]);
       await loadSessions();
     }
-  };
-  const handleSwitchSession = async (sessionId: string) => {
+  }, []);
+  const handleSwitchSession = useCallback(async (sessionId: string) => {
     chatService.switchSession(sessionId);
     setCurrentSessionId(sessionId);
     const res = await chatService.getMessages();
@@ -67,7 +52,21 @@ export function HomePage() {
     } else {
       setMessages([]);
     }
-  };
+  }, []);
+  const loadSessions = useCallback(async () => {
+    const res = await chatService.listSessions();
+    if (res.success && res.data) {
+      setSessions(res.data);
+      if (!currentSessionId && res.data.length > 0) {
+        handleSwitchSession(res.data[0].id);
+      } else if (!currentSessionId || (res.data.length === 0 && currentSessionId)) {
+        handleNewSession();
+      }
+    }
+  }, [currentSessionId, handleSwitchSession, handleNewSession]);
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
   const handleDeleteSession = async (sessionId: string) => {
     await chatService.deleteSession(sessionId);
     if (currentSessionId === sessionId) {
@@ -82,7 +81,7 @@ export function HomePage() {
       if (index !== -1) {
         draft[index] = updatedAgent;
       } else {
-        draft.push({ ...updatedAgent, id: crypto.randomUUID() });
+        draft.push(updatedAgent);
       }
     });
     setAgents(newAgents);
@@ -104,15 +103,11 @@ export function HomePage() {
     const userInput = input.trim();
     setInput('');
     setIsProcessing(true);
-    const userMessage: ExtendedMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userInput,
-      timestamp: Date.now(),
-    };
+    const userMessage: ExtendedMessage = { id: crypto.randomUUID(), role: 'user', content: userInput, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     if (messages.length === 0) {
-      await chatService.createSession(undefined, chatService.getSessionId(), userInput);
+      const agentSnapshot = agents.filter(a => a.isActive);
+      await chatService.createSession(undefined, chatService.getSessionId(), userInput, agentSnapshot);
       await loadSessions();
     }
     const activeAgents = agents.filter(a => a.isActive).sort((a, b) => (a.role === 'Primary' ? -1 : b.role === 'Primary' ? 1 : 0));
@@ -124,25 +119,15 @@ export function HomePage() {
       const personaPrefix = `[You are ${agent.name}. Personality: ${agent.personality}] User says: `;
       const fullPrompt = personaPrefix + userInput;
       const streamId = crypto.randomUUID();
-      const assistantMessage: ExtendedMessage = {
-        id: streamId,
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now(),
-        agentId: agent.id,
-        agentName: agent.name,
-        agentColor: agent.color,
-      };
+      const assistantMessage: ExtendedMessage = { id: streamId, role: 'assistant', content: '', timestamp: Date.now(), agentId: agent.id, agentName: agent.name, agentColor: agent.color };
       setMessages(prev => [...prev, assistantMessage]);
       await chatService.sendMessage(fullPrompt, agent.model, (chunk) => {
         setMessages(prev => produce(prev, draft => {
           const msg = draft.find(m => m.id === streamId);
-          if (msg) {
-            msg.content += chunk;
-          }
+          if (msg) msg.content += chunk;
         }));
         scrollToBottom();
-      });
+      }, messages);
       setAgents(prev => produce(prev, draft => {
         const agentToUpdate = draft.find(a => a.id === agent.id);
         if (agentToUpdate) agentToUpdate.status = 'Ready';
@@ -161,38 +146,34 @@ export function HomePage() {
           <div>
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-sm font-semibold uppercase text-muted-foreground">Agents</h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingAgent(defaultAgents()[0]); setIsDrawerOpen(true); }}>
-                <Plus className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Select onValueChange={id => { const templ = loadAgentTemplate(id); if (templ) { setEditingAgent(templ); setIsDrawerOpen(true); } }}>
+                  <SelectTrigger className="h-7 w-auto text-xs px-2"><SelectValue placeholder="Template" /></SelectTrigger>
+                  <SelectContent>
+                    {getAgentTemplates().map(t => <SelectItem key={t.templateId} value={t.templateId}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingAgent(null); setIsDrawerOpen(true); }}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-1">
               {agents.map(agent => (
-                <AgentCard
-                  key={agent.id}
-                  agent={agent}
-                  onEdit={() => { setEditingAgent(agent); setIsDrawerOpen(true); }}
-                  onDelete={(id) => { deleteAgent(id); setAgents(getAgents()); }}
-                  onPromote={handlePromoteAgent}
-                />
+                <AgentCard key={agent.id} agent={agent} onEdit={() => { setEditingAgent(agent); setIsDrawerOpen(true); }} onDelete={(id) => { deleteAgent(id); setAgents(getAgents()); }} onPromote={handlePromoteAgent} />
               ))}
             </div>
           </div>
           <div>
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-sm font-semibold uppercase text-muted-foreground">Sessions</h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNewSession}>
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNewSession}><Plus className="w-4 h-4" /></Button>
             </div>
             <div className="space-y-1">
               {sessions.map(session => (
                 <div key={session.id} className={cn("group flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-accent", currentSessionId === session.id && "bg-accent")}>
-                  <button onClick={() => handleSwitchSession(session.id)} className="flex-1 text-left text-sm truncate pr-2">
-                    {session.title}
-                  </button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteSession(session.id)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
+                  <button onClick={() => handleSwitchSession(session.id)} className="flex-1 text-left text-sm truncate pr-2">{session.title}</button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteSession(session.id)}><Trash2 className="w-3 h-3 text-destructive" /></Button>
                 </div>
               ))}
             </div>
@@ -200,7 +181,7 @@ export function HomePage() {
         </div>
       </ScrollArea>
       <div className="p-4 border-t text-xs text-muted-foreground">
-        <p>Built with ❤️ at Cloudflare</p>
+        <p>Built with ��️ at Cloudflare</p>
       </div>
     </aside>
   );
@@ -209,84 +190,58 @@ export function HomePage() {
       <header className="p-4 border-b flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           {isMobile && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon"><Menu className="w-5 h-5" /></Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-full max-w-xs"><LeftPanel /></SheetContent>
-            </Sheet>
+            <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon"><Menu className="w-5 h-5" /></Button></SheetTrigger><SheetContent side="left" className="p-0 w-full max-w-xs"><LeftPanel /></SheetContent></Sheet>
           )}
           <div className="flex items-center -space-x-2">
             {agents.filter(a => a.isActive).slice(0, 3).map(a => (
-              <div key={a.id} className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-background ${a.color}`}>
-                {a.name.charAt(0)}
-              </div>
+              <div key={a.id} className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-background ${a.color}`}>{a.name.charAt(0)}</div>
             ))}
           </div>
           <h2 className="font-semibold">{sessions.find(s => s.id === currentSessionId)?.title || 'New Chat'}</h2>
         </div>
-        {isMobile && (
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon"><Users className="w-5 h-5" /></Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="p-0 w-full max-w-xs"><RightPanel agents={agents} /></SheetContent>
-          </Sheet>
-        )}
-      </header>
-      <div className="flex-1 overflow-y-auto p-4" ref={messagesEndRef}>
-        <div className="max-w-4xl mx-auto space-y-6">
-          {showLimitsNotice && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg flex items-start gap-3 text-sm">
-              <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-              <span>There is a limit on AI requests across all user apps. Please be mindful of usage.</span>
-              <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => setShowLimitsNotice(false)}><X className="w-4 h-4" /></Button>
-            </div>
-          )}
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0", msg.agentColor || 'bg-gray-400')}>
-                  {msg.agentName?.charAt(0) || 'A'}
-                </div>
-              )}
-              <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted rounded-bl-none'}`}>
-                {msg.role === 'assistant' && <p className="font-bold text-sm mb-1">{msg.agentName}</p>}
-                <p className="whitespace-pre-wrap">{msg.content}{isProcessing && messages[messages.length - 1].id === msg.id ? <span className="stream-cursor" /> : ''}</p>
-                <p className="text-xs opacity-60 text-right mt-2">{formatTime(msg.timestamp)}</p>
-              </div>
-              {msg.role === 'user' && <User className="w-8 h-8 p-1.5 rounded-full bg-muted text-muted-foreground flex-shrink-0" />}
-            </motion.div>
-          ))}
-          {messages.length === 0 && (
-            <div className="text-center text-muted-foreground py-16">
-              <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold">Welcome to Conclave</h3>
-              <p>Start a conversation with your AI team.</p>
-            </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="transition-transform hover:scale-105" onClick={() => setShowExportModal(true)}><FileDown className="w-4 h-4 mr-2" />Export</Button>
+          {isMobile && (
+            <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon"><Users className="w-5 h-5" /></Button></SheetTrigger><SheetContent side="right" className="p-0 w-full max-w-xs"><RightPanel agents={agents} messages={messages} /></SheetContent></Sheet>
           )}
         </div>
-      </div>
+      </header>
+      <ScrollArea className="flex-1" ref={messagesEndRef}>
+        <div className="p-4">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {showLimitsNotice && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 p-3 rounded-lg flex items-start gap-3 text-sm">
+                <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>There is a limit on AI requests across all user apps. Please be mindful of usage.</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => setShowLimitsNotice(false)}><X className="w-4 h-4" /></Button>
+              </div>
+            )}
+            {messages.map((msg) => (
+              <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0", msg.agentColor || 'bg-gray-400')}>{msg.agentName?.charAt(0) || 'A'}</div>}
+                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted rounded-bl-none'}`}>
+                  {msg.role === 'assistant' && <p className="font-bold text-sm mb-1">{msg.agentName}</p>}
+                  <p className="whitespace-pre-wrap">{msg.content}{isProcessing && messages[messages.length - 1].id === msg.id ? <span className="stream-cursor" /> : ''}</p>
+                  <p className="text-xs opacity-60 text-right mt-2">{formatTime(msg.timestamp)}</p>
+                </div>
+                {msg.role === 'user' && <User className="w-8 h-8 p-1.5 rounded-full bg-muted text-muted-foreground flex-shrink-0" />}
+              </motion.div>
+            ))}
+            {messages.length === 0 && (
+              <div className="text-center text-muted-foreground py-16">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold">Welcome to Conclave</h3>
+                <p>Start a conversation with your AI team. Use a template to create a new agent.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </ScrollArea>
       <div className="p-4 border-t flex-shrink-0">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }}
-              placeholder="Message your AI team..."
-              className="pr-12 min-h-[48px] max-h-48 resize-none"
-              rows={1}
-              disabled={isProcessing}
-            />
-            <Button type="submit" size="icon" className="absolute right-2 bottom-2" disabled={!input.trim() || isProcessing}>
-              <Send className="w-4 h-4" />
-            </Button>
+            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }} placeholder="Message your AI team..." className="pr-12 min-h-[48px] max-h-48 resize-none" rows={1} disabled={isProcessing} />
+            <Button type="submit" size="icon" className="absolute right-2 bottom-2" disabled={!input.trim() || isProcessing}><Send className="w-4 h-4" /></Button>
           </div>
         </form>
       </div>
@@ -297,14 +252,10 @@ export function HomePage() {
       <div className="grid md:grid-cols-[280px,1fr,340px] h-full">
         {!isMobile && <LeftPanel />}
         <CenterPanel />
-        {!isMobile && <RightPanel agents={agents} />}
+        {!isMobile && <RightPanel agents={agents} messages={messages} />}
       </div>
-      <AgentConfigDrawer
-        agent={editingAgent}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onSave={handleAgentUpdate}
-      />
+      <AgentConfigDrawer agent={editingAgent} isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} onSave={handleAgentUpdate} />
+      <ExportModal open={showExportModal} onOpenChange={setShowExportModal} messages={messages} />
       <Toaster />
     </div>
   );

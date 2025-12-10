@@ -1,4 +1,4 @@
-import { Agent, agentIcons, getAgentIcon } from '@/lib/agents';
+import { Agent, agentIcons, getAgentIcon, loadAgentTemplate } from '@/lib/agents';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,9 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { MODELS } from '@/lib/chat';
 import { useState, useEffect } from 'react';
 import { produce } from 'immer';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 interface AgentConfigDrawerProps {
   agent: Agent | null;
   isOpen: boolean;
@@ -17,31 +20,45 @@ interface AgentConfigDrawerProps {
 }
 const iconEntries = Object.entries(agentIcons);
 const colors = ['bg-indigo-500', 'bg-green-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500', 'bg-purple-500'];
+const newAgentTemplate = (): Agent => {
+  return loadAgentTemplate('researcher') || {
+    id: crypto.randomUUID(),
+    name: 'New Agent',
+    icon: 'Bot',
+    color: 'bg-indigo-500',
+    personality: '',
+    status: 'Ready',
+    isActive: true,
+    role: 'Observer',
+    model: 'google-ai-studio/gemini-2.5-flash',
+    config: { formality: 50, detail: 50, approach: 50, creativity: 50, participation: 'Relevant' },
+  };
+};
 export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfigDrawerProps) {
-  const [currentAgent, setCurrentAgent] = useState<Agent | null>(agent);
+  const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
+  const [isAdvanced, setIsAdvanced] = useState(false);
   useEffect(() => {
-    setCurrentAgent(agent);
-  }, [agent]);
+    if (isOpen) {
+      setCurrentAgent(agent || newAgentTemplate());
+      setIsAdvanced(!!(agent?.systemPrompt));
+    }
+  }, [agent, isOpen]);
   if (!isOpen || !currentAgent) return null;
   const handleSave = () => {
     if (currentAgent) {
+      if (!currentAgent.name.trim()) {
+        toast.error("Agent name is required.");
+        return;
+      }
       onSave(currentAgent);
       onClose();
     }
   };
   const updateField = <K extends keyof Agent>(field: K, value: Agent[K]) => {
-    setCurrentAgent(produce(draft => {
-      if (draft) {
-        draft[field] = value;
-      }
-    }));
+    setCurrentAgent(produce(draft => { if (draft) { draft[field] = value; } }));
   };
   const updateConfig = <K extends keyof Agent['config']>(field: K, value: Agent['config'][K]) => {
-    setCurrentAgent(produce(draft => {
-      if (draft) {
-        draft.config[field] = value;
-      }
-    }));
+    setCurrentAgent(produce(draft => { if (draft) { draft.config[field] = value; } }));
   };
   const IconComponent = getAgentIcon(currentAgent.icon);
   return (
@@ -55,7 +72,7 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${currentAgent.color}`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${currentAgent.color} transition-colors`}>
                   <IconComponent className="w-8 h-8 text-white" />
                 </div>
                 <div className="flex-1">
@@ -67,9 +84,7 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
                 <Label>Avatar</Label>
                 <div className="flex gap-2 mt-2">
                   {iconEntries.map(([name, Icon]) => (
-                    <Button key={name} variant={currentAgent.icon === name ? 'default' : 'outline'} size="icon" onClick={() => updateField('icon', name)}>
-                      <Icon className="w-5 h-5" />
-                    </Button>
+                    <Button key={name} variant={currentAgent.icon === name ? 'default' : 'outline'} size="icon" onClick={() => updateField('icon', name)}><Icon className="w-5 h-5" /></Button>
                   ))}
                 </div>
                 <div className="flex gap-2 mt-2">
@@ -86,29 +101,37 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
                 <Label htmlFor="agent-model">Model</Label>
                 <Select value={currentAgent.model} onValueChange={(value) => updateField('model', value)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{MODELS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-4">
-              <div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <Label>Formality: <span className="text-muted-foreground font-normal">{currentAgent.config.formality}%</span></Label>
                 <Slider value={[currentAgent.config.formality]} onValueChange={([v]) => updateConfig('formality', v)} step={10} />
-              </div>
-              <div>
+              </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
                 <Label>Detail Level: <span className="text-muted-foreground font-normal">{currentAgent.config.detail}%</span></Label>
                 <Slider value={[currentAgent.config.detail]} onValueChange={([v]) => updateConfig('detail', v)} step={10} />
-              </div>
-              <div>
+              </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
                 <Label>Approach: <span className="text-muted-foreground font-normal">{currentAgent.config.approach}%</span></Label>
                 <Slider value={[currentAgent.config.approach]} onValueChange={([v]) => updateConfig('approach', v)} step={10} />
-              </div>
-              <div>
+              </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                 <Label>Creativity: <span className="text-muted-foreground font-normal">{currentAgent.config.creativity}%</span></Label>
                 <Slider value={[currentAgent.config.creativity]} onValueChange={([v]) => updateConfig('creativity', v)} step={10} />
+              </motion.div>
+              <div className="flex items-center space-x-2 pt-4">
+                <Switch id="advanced-mode" checked={isAdvanced} onCheckedChange={setIsAdvanced} />
+                <Label htmlFor="advanced-mode">Advanced (System Prompt)</Label>
               </div>
+              {isAdvanced && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                  <Label htmlFor="system-prompt">System Prompt</Label>
+                  <Textarea id="system-prompt" value={currentAgent.systemPrompt || ''} onChange={(e) => updateField('systemPrompt', e.target.value)} rows={3} placeholder="e.g., You are a helpful AI assistant..." />
+                </motion.div>
+              )}
             </div>
           </div>
           <DrawerFooter>

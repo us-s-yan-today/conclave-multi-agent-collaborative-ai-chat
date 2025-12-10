@@ -30,10 +30,9 @@ export function ExportModal({ open, onOpenChange, messages }: ExportModalProps) 
       .catch(() => toast.error('Failed to copy.'));
   };
   const handleCopyLink = () => {
-    const params = new URLSearchParams({ session: chatService.getSessionId(), mode: 'read-only' });
-    const url = `${window.location.origin}${window.location.pathname}#${params.toString()}`;
+    const url = `${window.location.origin}${window.location.pathname}#session=${chatService.getSessionId()}`;
     navigator.clipboard.writeText(url)
-      .then(() => toast.success('Read-only share link copied!'))
+      .then(() => toast.success('Share link copied!'))
       .catch(() => toast.error('Failed to copy link.'));
   };
   return (
@@ -43,7 +42,7 @@ export function ExportModal({ open, onOpenChange, messages }: ExportModalProps) 
           <DialogHeader>
             <DialogTitle>Export & Share Conversation</DialogTitle>
             <DialogDescription>
-              Export your conversation in various formats or share a read-only link.
+              Export your conversation in various formats or share a link.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -65,7 +64,7 @@ export function ExportModal({ open, onOpenChange, messages }: ExportModalProps) 
           <DialogFooter className="sm:justify-between gap-2">
             <Button variant="outline" onClick={handleCopyLink}>
               <LinkIcon className="w-4 h-4 mr-2" />
-              Copy Read-Only Link
+              Copy Share Link (mock)
             </Button>
             <Button onClick={handleCopy}>
               <Clipboard className="w-4 h-4 mr-2" />
