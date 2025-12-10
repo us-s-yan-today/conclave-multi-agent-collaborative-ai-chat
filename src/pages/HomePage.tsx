@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Toaster } from 'sonner';
 import { produce } from 'immer';
-import { chatService, ExtendedMessage } from '@/lib/chat';
+import { chatService, ExtendedMessage, generateSessionTitle } from '@/lib/chat';
 import type { SessionInfo } from '../../worker/types';
 import { Agent, getAgents, saveAgents } from '@/lib/agents';
 import { AgentConfigDrawer } from '@/components/AgentConfigDrawer';
@@ -12,6 +12,8 @@ import { CenterPanel } from '@/components/CenterPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { CONTAINER_WRAPPER, PAGE_SPACING } from './_workspaceStyles';
 export function HomePage() {
   const [agents, setAgents] = useState<Agent[]>(getAgents);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -31,40 +33,40 @@ export function HomePage() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
   useEffect(scrollToBottom, [messages]);
-  const handleNewSession = useCallback(async () => {
-    const res = await chatService.createSession();
-    if (res.success && res.data) {
-      chatService.switchSession(res.data.sessionId);
-      setCurrentSessionId(res.data.sessionId);
-      setMessages([]);
-      return res.data.sessionId;
-    }
-    return null;
-  }, []);
   const handleSwitchSession = useCallback(async (sessionId: string) => {
     chatService.switchSession(sessionId);
     setCurrentSessionId(sessionId);
     const res = await chatService.getMessages();
     setMessages(res.success && res.data ? res.data.messages : []);
   }, []);
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (switchToId?: string) => {
     const res = await chatService.listSessions();
     if (res.success && res.data) {
       setSessions(res.data);
-      if (!currentSessionId && res.data.length > 0) {
-        handleSwitchSession(res.data[0].id);
-      } else if (!currentSessionId || res.data.length === 0) {
-        const newId = await handleNewSession();
-        if (newId) {
-          // After creating a new session, we need to refresh the list
+      const targetSessionId = switchToId || currentSessionId;
+      if (targetSessionId && res.data.some(s => s.id === targetSessionId)) {
+        if (currentSessionId !== targetSessionId) {
+          await handleSwitchSession(targetSessionId);
+        }
+      } else if (res.data.length > 0) {
+        await handleSwitchSession(res.data[0].id);
+      } else {
+        const newRes = await chatService.createSession(generateSessionTitle());
+        if (newRes.success && newRes.data) {
+          await handleSwitchSession(newRes.data.sessionId);
           const newList = await chatService.listSessions();
           if (newList.success && newList.data) setSessions(newList.data);
         }
       }
     }
-  }, [currentSessionId, handleSwitchSession, handleNewSession]);
+  }, [currentSessionId, handleSwitchSession]);
+  const handleNewSession = useCallback(async () => {
+    const res = await chatService.createSession(generateSessionTitle());
+    if (res.success && res.data) {
+      await loadSessions(res.data.sessionId);
+    }
+  }, [loadSessions]);
   useEffect(() => {
-    console.warn('HomePage mounted');
     const params = new URLSearchParams(window.location.hash.substring(1));
     const sessionId = params.get('session');
     const mode = params.get('mode');
@@ -76,7 +78,7 @@ export function HomePage() {
     } else {
       loadSessions();
     }
-  }, [loadSessions, handleSwitchSession]);
+  }, [handleSwitchSession, loadSessions]);
   const handleDeleteSession = async (sessionId: string) => {
     await chatService.deleteSession(sessionId);
     if (currentSessionId === sessionId) {
@@ -112,9 +114,11 @@ export function HomePage() {
     setIsProcessing(true);
     const userMessage: ExtendedMessage = { id: crypto.randomUUID(), role: 'user', content: userInput, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
-    if (messages.length === 0) {
+    if (messages.length === 0 && currentSessionId) {
       const agentSnapshot = agents.filter(a => a.isActive);
-      await chatService.createSession(undefined, chatService.getSessionId(), userInput, agentSnapshot);
+      const title = generateSessionTitle(userInput);
+      await chatService.updateSessionTitle(currentSessionId, title);
+      await chatService.createSession(title, currentSessionId, userInput, agentSnapshot);
       await loadSessions();
     }
     const activeAgents = agents.filter(a => a.isActive).sort((a, b) => (a.role === 'Primary' ? -1 : b.role === 'Primary' ? 1 : 0));
@@ -147,63 +151,64 @@ export function HomePage() {
     setIsDrawerOpen(true);
   };
   return (
-    <div className="h-screen w-screen bg-card text-foreground overflow-hidden">
-      <ThemeToggle />
-      <div className="grid md:grid-cols-[280px,1fr,340px] h-full">
-        {!isMobile && (
-          <LeftPanel
-            agents={agents}
-            setAgents={setAgents}
-            sessions={sessions}
-            currentSessionId={currentSessionId}
-            onNewSession={async () => {
-              await handleNewSession();
-              await loadSessions();
-            }}
-            onSwitchSession={handleSwitchSession}
-            onDeleteSession={handleDeleteSession}
-            onEditAgent={handleEditAgent}
-            onPromoteAgent={handlePromoteAgent}
-          />
-        )}
-        <CenterPanel
-          isMobile={isMobile}
-          agents={agents}
-          setAgents={setAgents}
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          messages={messages}
-          input={input}
-          isProcessing={isProcessing || isShareMode}
-          showLimitsNotice={showLimitsNotice}
-          messagesEndRef={messagesEndRef}
-          onNewSession={async () => {
-            await handleNewSession();
-            await loadSessions();
-          }}
-          onSwitchSession={handleSwitchSession}
-          onDeleteSession={handleDeleteSession}
-          onEditAgent={handleEditAgent}
-          onPromoteAgent={handlePromoteAgent}
-          setShowExportModal={setShowExportModal}
-          setShowLimitsNotice={setShowLimitsNotice}
-          handleSubmit={handleSubmit}
-          setInput={setInput}
+    <TooltipProvider>
+      <div className="h-screen w-screen bg-card text-foreground overflow-hidden">
+        <ThemeToggle />
+        <div className={`${CONTAINER_WRAPPER} h-full`}>
+          <div className={`${PAGE_SPACING} h-full`}>
+            <div className="grid md:grid-cols-[280px,1fr,340px] h-full gap-6">
+              {!isMobile && (
+                <LeftPanel
+                  agents={agents}
+                  setAgents={setAgents}
+                  sessions={sessions}
+                  currentSessionId={currentSessionId}
+                  onNewSession={handleNewSession}
+                  onSwitchSession={handleSwitchSession}
+                  onDeleteSession={handleDeleteSession}
+                  onEditAgent={handleEditAgent}
+                  onPromoteAgent={handlePromoteAgent}
+                />
+              )}
+              <CenterPanel
+                isMobile={isMobile}
+                agents={agents}
+                setAgents={setAgents}
+                sessions={sessions}
+                currentSessionId={currentSessionId}
+                messages={messages}
+                input={input}
+                isProcessing={isProcessing || isShareMode}
+                showLimitsNotice={showLimitsNotice}
+                messagesEndRef={messagesEndRef}
+                onNewSession={handleNewSession}
+                onSwitchSession={handleSwitchSession}
+                onDeleteSession={handleDeleteSession}
+                onEditAgent={handleEditAgent}
+                onPromoteAgent={handlePromoteAgent}
+                setShowExportModal={setShowExportModal}
+                setShowLimitsNotice={setShowLimitsNotice}
+                handleSubmit={handleSubmit}
+                setInput={setInput}
+                isShareMode={isShareMode}
+              />
+              {!isMobile && <RightPanel agents={agents} messages={messages} />}
+            </div>
+          </div>
+        </div>
+        <AgentConfigDrawer
+          agent={editingAgent}
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          onSave={handleAgentUpdate}
         />
-        {!isMobile && <RightPanel agents={agents} messages={messages} />}
+        <ExportModal
+          open={showExportModal}
+          onOpenChange={setShowExportModal}
+          messages={messages}
+        />
+        <Toaster />
       </div>
-      <AgentConfigDrawer
-        agent={editingAgent}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onSave={handleAgentUpdate}
-      />
-      <ExportModal
-        open={showExportModal}
-        onOpenChange={setShowExportModal}
-        messages={messages}
-      />
-      <Toaster />
-    </div>
+    </TooltipProvider>
   );
 }

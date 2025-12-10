@@ -23,7 +23,6 @@ const StatusIndicator = ({ status }: { status: Agent['status'] }) => {
     default: return null;
   }
 };
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 export function RightPanel({ agents, messages }: RightPanelProps) {
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -51,11 +50,11 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
     return { ...metrics, agentUsageData };
   }, [messages, agents]);
   return (
-    <aside className="hidden md:flex flex-col gap-6 h-full p-4 bg-muted/30">
+    <aside className="hidden md:flex flex-col gap-6 h-full p-4 bg-muted/30 rounded-lg">
       <Tabs defaultValue="status" className="flex-1 flex flex-col min-h-0">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="status"><Bot className="w-4 h-4 mr-2" />Status</TabsTrigger>
-          <TabsTrigger value="analytics"><BarChart2 className="w-4 h-4 mr-2" />Analytics</TabsTrigger>
+          <TabsTrigger value="status" role="tab"><Bot className="w-4 h-4 mr-2" />Status</TabsTrigger>
+          <TabsTrigger value="analytics" role="tab"><BarChart2 className="w-4 h-4 mr-2" />Analytics</TabsTrigger>
         </TabsList>
         <TabsContent value="status" className="flex-1 flex flex-col gap-4 min-h-0 mt-4">
           <Card className="flex-shrink-0">
@@ -81,26 +80,36 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
           </Card>
         </TabsContent>
         <TabsContent value="analytics" className="flex-1 flex flex-col gap-4 min-h-0 mt-4">
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Agent Participation</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={analytics.agentUsageData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>{analytics.agentUsageData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Message Metrics</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div><p className="text-2xl font-bold">{analytics.totalMessages}</p><p className="text-sm text-muted-foreground">Total Messages</p></div>
-                <div><p className="text-2xl font-bold">{analytics.avgResponseLength.toFixed(0)}</p><p className="text-sm text-muted-foreground">Avg. Response Chars</p></div>
-              </div>
-            </CardContent>
-          </Card>
+          {analytics.agentUsageData.length === 0 ? (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+              <BarChart2 className="w-12 h-12 mx-auto mb-4" />
+              <p className="font-semibold">No data yet.</p>
+              <p className="text-sm">Send some messages to see analytics.</p>
+            </motion.div>
+          ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="flex-1 flex flex-col gap-4">
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Agent Participation</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={analytics.agentUsageData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>{analytics.agentUsageData.map((entry, index) => <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${index + 1}))`} />)}</Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Message Metrics</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div><p className="text-2xl font-bold">{analytics.totalMessages}</p><p className="text-sm text-muted-foreground">Total Messages</p></div>
+                    <div><p className="text-2xl font-bold">{analytics.avgResponseLength.toFixed(0)}</p><p className="text-sm text-muted-foreground">Avg. Response Chars</p></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </TabsContent>
       </Tabs>
     </aside>

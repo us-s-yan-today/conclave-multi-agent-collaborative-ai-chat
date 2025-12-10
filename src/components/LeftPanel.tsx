@@ -3,6 +3,7 @@ import type { SessionInfo } from '../../worker/types';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2 } from 'lucide-react';
 import { AgentCard } from '@/components/AgentCard';
 import { cn } from '@/lib/utils';
@@ -29,7 +30,7 @@ export function LeftPanel({
   onPromoteAgent,
 }: LeftPanelProps) {
   return (
-    <aside className="h-full flex flex-col bg-card border-r">
+    <aside className="h-full flex flex-col bg-card border rounded-lg">
       <div className="p-4 border-b">
         <h1 className="text-2xl font-bold font-display text-gradient">Conclave</h1>
         <p className="text-sm text-muted-foreground">Multi-Agent Collaborative AI</p>
@@ -44,16 +45,26 @@ export function LeftPanel({
                   const templ = loadAgentTemplate(id);
                   if (templ) onEditAgent(templ);
                 }}>
-                  <SelectTrigger className="h-7 w-auto text-xs px-2 border-dashed">
-                    <SelectValue placeholder="Template" />
-                  </SelectTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SelectTrigger className="h-7 w-auto text-xs px-2 border-dashed">
+                        <SelectValue placeholder="Template" />
+                      </SelectTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Add agent from template</TooltipContent>
+                  </Tooltip>
                   <SelectContent>
                     {getAgentTemplates().map(t => <SelectItem key={t.templateId} value={t.templateId}>{t.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditAgent(null)}>
-                  <Plus className="w-4 h-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditAgent(null)}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Create New Agent</TooltipContent>
+                </Tooltip>
               </div>
             </div>
             <div className="space-y-1">
@@ -74,19 +85,29 @@ export function LeftPanel({
           <div>
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wider">Sessions</h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNewSession}>
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNewSession}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New Chat</TooltipContent>
+              </Tooltip>
             </div>
             <div className="space-y-1">
               {sessions.map(session => (
-                <div key={session.id} className={cn("group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors hover:bg-accent", currentSessionId === session.id && "bg-accent")}>
+                <div key={session.id} className={cn("group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors hover:bg-accent dark:hover:bg-muted/50", currentSessionId === session.id && "bg-accent dark:bg-muted/50 border-l-2 border-primary")}>
                   <button onClick={() => onSwitchSession(session.id)} className="flex-1 text-left text-sm truncate pr-2 font-medium">
                     {session.title}
                   </button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => onDeleteSession(session.id)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => onDeleteSession(session.id)}>
+                        <Trash2 className="w-3 h-3 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete Session</TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>

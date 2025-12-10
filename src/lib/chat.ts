@@ -219,3 +219,11 @@ export const getUsageMetrics = (messages: ExtendedMessage[]) => {
     avgResponseLength,
   };
 };
+export const generateSessionTitle = (firstMessage?: string): string => {
+  if (!firstMessage || !firstMessage.trim()) {
+    return `Chat ${new Date().toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+  }
+  const cleanMessage = firstMessage.trim().replace(/\s+/g, ' ');
+  const truncated = cleanMessage.length > 40 ? cleanMessage.slice(0, 37) + '...' : cleanMessage;
+  return `${truncated} • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};

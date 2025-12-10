@@ -9,9 +9,11 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LeftPanel } from '@/components/LeftPanel';
 import { RightPanel } from '@/components/RightPanel';
-import { Menu, Users, Send, User, AlertTriangle, X, MessageSquare, FileDown } from 'lucide-react';
+import { Menu, Users, Send, User, AlertTriangle, X, MessageSquare, FileDown, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/chat';
+import { Skeleton } from './ui/skeleton';
+import { Badge } from './ui/badge';
 interface CenterPanelProps {
   isMobile: boolean;
   agents: Agent[];
@@ -32,6 +34,7 @@ interface CenterPanelProps {
   setShowLimitsNotice: (show: boolean) => void;
   handleSubmit: (e: FormEvent) => void;
   setInput: (input: string) => void;
+  isShareMode: boolean;
 }
 export function CenterPanel({
   isMobile,
@@ -53,10 +56,11 @@ export function CenterPanel({
   setShowLimitsNotice,
   handleSubmit,
   setInput,
+  isShareMode,
 }: CenterPanelProps) {
   const currentSession = sessions.find(s => s.id === currentSessionId);
   return (
-    <main className="flex flex-col h-full bg-background">
+    <main className="flex flex-col h-full bg-background border rounded-lg">
       <header className="p-4 border-b flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           {isMobile && (
@@ -101,7 +105,7 @@ export function CenterPanel({
             {messages.map((msg) => (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0", msg.agentColor || 'bg-gray-400')}>{msg.agentName?.charAt(0) || 'A'}</div>}
-                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted rounded-bl-none'}`}>
+                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none dark:bg-primary/90' : 'bg-muted rounded-bl-none dark:bg-muted/80'}`}>
                   {msg.role === 'assistant' && <p className="font-bold text-sm mb-1">{msg.agentName}</p>}
                   <p className="whitespace-pre-wrap">{msg.content}{isProcessing && messages[messages.length - 1].id === msg.id ? <span className="stream-cursor" /> : ''}</p>
                   <p className="text-xs opacity-60 text-right mt-2">{formatTime(msg.timestamp)}</p>
@@ -109,6 +113,16 @@ export function CenterPanel({
                 {msg.role === 'user' && <User className="w-8 h-8 p-1.5 rounded-full bg-muted text-muted-foreground flex-shrink-0" />}
               </motion.div>
             ))}
+            {isProcessing && messages.length > 0 && messages[messages.length-1].role === 'user' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 justify-start">
+                <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                <div className="max-w-[85%] w-full space-y-2">
+                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              </motion.div>
+            )}
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-16">
                 <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -122,8 +136,13 @@ export function CenterPanel({
       <div className="p-4 border-t flex-shrink-0">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="relative">
-            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }} placeholder="Message your AI team..." className="pr-12 min-h-[48px] max-h-48 resize-none" rows={1} disabled={isProcessing} />
-            <Button type="submit" size="icon" className="absolute right-2 bottom-2" disabled={!input.trim() || isProcessing}><Send className="w-4 h-4" /></Button>
+            {isShareMode && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Badge variant="secondary"><Lock className="w-3 h-3 mr-2" />Read-Only Mode</Badge>
+              </div>
+            )}
+            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }} placeholder="Message your AI team..." className="pr-12 min-h-[48px] max-h-48 resize-none focus:ring-2 focus:ring-ring focus:border-ring" rows={1} disabled={isProcessing || isShareMode} />
+            <Button type="submit" size="icon" className="absolute right-2 bottom-2 transition-transform hover:scale-105 active:scale-95" disabled={!input.trim() || isProcessing || isShareMode}><Send className="w-4 h-4" /></Button>
           </div>
         </form>
       </div>
