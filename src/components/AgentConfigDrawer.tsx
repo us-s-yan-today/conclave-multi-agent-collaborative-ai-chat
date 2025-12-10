@@ -1,4 +1,4 @@
-import { Agent, agentIcons, getAgentIcon, loadAgentTemplate } from '@/lib/agents';
+import { Agent, agentIcons, getAgentIcon, loadAgentTemplate, TEMPLATE_PRESETS } from '@/lib/agents';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,15 +22,7 @@ const iconEntries = Object.entries(agentIcons);
 const colors = ['bg-indigo-500', 'bg-green-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500', 'bg-purple-500'];
 const newAgentTemplate = (): Agent => {
   return loadAgentTemplate('researcher') || {
-    id: crypto.randomUUID(),
-    name: 'New Agent',
-    icon: 'Bot',
-    color: 'bg-indigo-500',
-    personality: '',
-    status: 'Ready',
-    isActive: true,
-    role: 'Observer',
-    model: 'google-ai-studio/gemini-2.5-flash',
+    id: crypto.randomUUID(), name: 'New Agent', icon: 'Bot', color: 'bg-indigo-500', personality: '', status: 'Ready', isActive: true, role: 'Observer', model: 'google-ai-studio/gemini-2.5-flash',
     config: { formality: 50, detail: 50, approach: 50, creativity: 50, participation: 'Relevant' },
   };
 };
@@ -63,11 +55,11 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
   const IconComponent = getAgentIcon(currentAgent.icon);
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-w-2xl mx-auto">
+      <DrawerContent className="max-w-4xl mx-auto">
         <div className="p-4">
           <DrawerHeader>
             <DrawerTitle>{agent?.id ? 'Edit Agent' : 'Create New Agent'}</DrawerTitle>
-            <DrawerDescription>Configure the agent's personality, behavior, and model.</DrawerDescription>
+            <DrawerDescription>Configure the agent's personality, behavior, and model. Or, choose a preset to get started.</DrawerDescription>
           </DrawerHeader>
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -82,14 +74,14 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
               </div>
               <div>
                 <Label>Avatar</Label>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   {iconEntries.map(([name, Icon]) => (
                     <Button key={name} variant={currentAgent.icon === name ? 'default' : 'outline'} size="icon" onClick={() => updateField('icon', name)}><Icon className="w-5 h-5" /></Button>
                   ))}
                 </div>
                 <div className="flex gap-2 mt-2">
                   {colors.map((color) => (
-                    <button key={color} className={`w-8 h-8 rounded-full ${color} border-2 ${currentAgent.color === color ? 'border-primary' : 'border-transparent'}`} onClick={() => updateField('color', color)} />
+                    <button key={color} className={`w-8 h-8 rounded-full ${color} border-2 ${currentAgent.color === color ? 'border-primary ring-2 ring-ring' : 'border-transparent'}`} onClick={() => updateField('color', color)} />
                   ))}
                 </div>
               </div>
@@ -106,32 +98,29 @@ export function AgentConfigDrawer({ agent, isOpen, onClose, onSave }: AgentConfi
               </div>
             </div>
             <div className="space-y-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <Label>Formality: <span className="text-muted-foreground font-normal">{currentAgent.config.formality}%</span></Label>
-                <Slider value={[currentAgent.config.formality]} onValueChange={([v]) => updateConfig('formality', v)} step={10} />
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-                <Label>Detail Level: <span className="text-muted-foreground font-normal">{currentAgent.config.detail}%</span></Label>
-                <Slider value={[currentAgent.config.detail]} onValueChange={([v]) => updateConfig('detail', v)} step={10} />
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-                <Label>Approach: <span className="text-muted-foreground font-normal">{currentAgent.config.approach}%</span></Label>
-                <Slider value={[currentAgent.config.approach]} onValueChange={([v]) => updateConfig('approach', v)} step={10} />
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                <Label>Creativity: <span className="text-muted-foreground font-normal">{currentAgent.config.creativity}%</span></Label>
-                <Slider value={[currentAgent.config.creativity]} onValueChange={([v]) => updateConfig('creativity', v)} step={10} />
-              </motion.div>
-              <div className="flex items-center space-x-2 pt-4">
-                <Switch id="advanced-mode" checked={isAdvanced} onCheckedChange={setIsAdvanced} />
-                <Label htmlFor="advanced-mode">Advanced (System Prompt)</Label>
+              <motion.div><Label>Formality: <span className="text-muted-foreground font-normal">{currentAgent.config.formality}%</span></Label><Slider value={[currentAgent.config.formality]} onValueChange={([v]) => updateConfig('formality', v)} step={10} /></motion.div>
+              <motion.div><Label>Detail Level: <span className="text-muted-foreground font-normal">{currentAgent.config.detail}%</span></Label><Slider value={[currentAgent.config.detail]} onValueChange={([v]) => updateConfig('detail', v)} step={10} /></motion.div>
+              <motion.div><Label>Approach: <span className="text-muted-foreground font-normal">{currentAgent.config.approach}%</span></Label><Slider value={[currentAgent.config.approach]} onValueChange={([v]) => updateConfig('approach', v)} step={10} /></motion.div>
+              <motion.div><Label>Creativity: <span className="text-muted-foreground font-normal">{currentAgent.config.creativity}%</span></Label><Slider value={[currentAgent.config.creativity]} onValueChange={([v]) => updateConfig('creativity', v)} step={10} /></motion.div>
+              <div className="flex items-center space-x-2 pt-4"><Switch id="advanced-mode" checked={isAdvanced} onCheckedChange={setIsAdvanced} /><Label htmlFor="advanced-mode">Advanced (System Prompt)</Label></div>
+              {isAdvanced && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}><Label htmlFor="system-prompt">System Prompt</Label><Textarea id="system-prompt" value={currentAgent.systemPrompt || ''} onChange={(e) => updateField('systemPrompt', e.target.value)} rows={3} placeholder="e.g., You are a helpful AI assistant..." /></motion.div>}
+            </div>
+            <div className="md:col-span-2 pt-4">
+              <h3 className="text-lg font-semibold mb-2">Presets Marketplace</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {TEMPLATE_PRESETS.map(preset => {
+                  const PresetIcon = getAgentIcon(preset.icon);
+                  return (
+                    <motion.div key={preset.templateId} className="p-4 border rounded-lg cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { const agent = loadAgentTemplate(preset.templateId); if (agent) setCurrentAgent(agent); }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileHover={{ scale: 1.02, y: -2 }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${preset.color}`}><PresetIcon className="w-5 h-5 text-white" /></div>
+                        <h4 className="font-semibold">{preset.name}</h4>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{preset.personality}</p>
+                    </motion.div>
+                  );
+                })}
               </div>
-              {isAdvanced && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                  <Label htmlFor="system-prompt">System Prompt</Label>
-                  <Textarea id="system-prompt" value={currentAgent.systemPrompt || ''} onChange={(e) => updateField('systemPrompt', e.target.value)} rows={3} placeholder="e.g., You are a helpful AI assistant..." />
-                </motion.div>
-              )}
             </div>
           </div>
           <DrawerFooter>

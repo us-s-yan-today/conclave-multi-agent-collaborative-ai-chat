@@ -25,7 +25,6 @@ class ChatService {
     history?: Message[]
   ): Promise<ChatResponse> {
     try {
-      // Prune history for token efficiency
       let conversationHistory = history || [];
       if (conversationHistory.length > 20) {
         console.log('Pruning conversation history to last 10 messages.');
@@ -204,4 +203,19 @@ export const renderToolCall = (toolCall: ToolCall): string => {
     return `🌤️ Weather in ${weather.location}: ${weather.temperature}°C, ${weather.condition}`;
   }
   return `🔧 ${toolCall.name}: Done`;
+};
+export const getUsageMetrics = (messages: ExtendedMessage[]) => {
+  const agentMessages = messages.filter(m => m.role === 'assistant' && m.agentId);
+  const agentUsage = agentMessages.reduce((acc, m) => {
+    const id = m.agentId!;
+    acc[id] = (acc[id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const totalResponseLength = agentMessages.reduce((sum, m) => sum + m.content.length, 0);
+  const avgResponseLength = agentMessages.length > 0 ? totalResponseLength / agentMessages.length : 0;
+  return {
+    agentUsage,
+    totalMessages: messages.length,
+    avgResponseLength,
+  };
 };
