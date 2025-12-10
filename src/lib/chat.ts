@@ -1,5 +1,6 @@
 import type { Message, ChatState, ToolCall, WeatherResult, MCPResult, ErrorResult, SessionInfo } from '../../worker/types';
 import type { Agent } from './agents';
+import { toast } from 'sonner';
 export interface ChatResponse {
   success: boolean;
   data?: ChatState;
@@ -24,13 +25,13 @@ class ChatService {
     model?: string,
     onChunk?: (chunk: string) => void
   ): Promise<ChatResponse> {
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 3;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const response = await fetch(`${this.baseUrl}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, model, stream: !!onChunk }), // REMOVED history from body
+          body: JSON.stringify({ message, model, stream: !!onChunk }),
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -55,9 +56,13 @@ class ChatService {
       } catch (error) {
         console.error(`Failed to send message (attempt ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
-          return { success: false, error: error instanceof Error ? error.message : 'Failed to send message' };
+          const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
+          if (errorMessage.includes('SQLITE_TOOBIG')) {
+            toast.error('Storage limit reached. Older messages may be pruned.');
+          }
+          return { success: false, error: errorMessage };
         }
-        await delay(100 * attempt); // Exponential backoff
+        await delay(200 * attempt); // Exponential backoff
       }
     }
     return { success: false, error: 'Failed to send message after multiple retries.' };
@@ -159,6 +164,9 @@ class ChatService {
     if (!messages || messages.length === 0) {
       return 'No messages to export.';
     }
+    if (messages.length > 100) {
+      toast.warning('Long conversation exported - consider archiving older sessions.');
+    }
     return new Promise((resolve) => {
       switch (format) {
         case 'json':
@@ -178,7 +186,7 @@ class ChatService {
     });
   }
   async summarizeConversation(messages: ExtendedMessage[]): Promise<string> {
-    const conversationText = messages.map(m => `${m.agentName || m.role}: ${m.content}`).join('\n');
+    const conversationText = messages.slice(-15).map(m => `${m.agentName || m.role}: ${m.content}`).join('\n');
     const prompt = `Summarize the following conversation concisely. Extract key points and any action items (prefix action items with "ACTION:").\n\nConversation:\n${conversationText}`;
     try {
       const response = await this.sendMessage(prompt, 'google-ai-studio/gemini-2.5-flash');
@@ -188,7 +196,12 @@ class ChatService {
       throw new Error(response.error || "Could not generate summary.");
     } catch (error) {
       console.error("Summarization failed:", error);
-      return "Summary unavailable - conversation in progress.";
+      if (error instanceof Error && error.message.includes('SQLITE_TOOBIG')) {
+        return 'Summary unavailable: Conversation too long. Consider starting a new session.';
+      }
+      // Fallback mock summary
+      const fallback = messages.slice(-3).map(m => m.content).join(' ').substring(0, 200);
+      return `Summary generation failed. Recent topics include: ${fallback}...`;
     }
   }
 }

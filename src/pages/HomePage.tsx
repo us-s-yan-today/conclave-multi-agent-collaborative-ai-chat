@@ -26,6 +26,7 @@ export function HomePage() {
   const [showLimitsNotice, setShowLimitsNotice] = useState(true);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isShareMode, setIsShareMode] = useState(false);
+  const [showLengthWarning, setShowLengthWarning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   useTheme(); // Initialize theme
@@ -33,6 +34,18 @@ export function HomePage() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
   useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    const warningThreshold = 32; // ~80% of 40 message limit
+    if (messages.length > warningThreshold && !showLengthWarning) {
+      setShowLengthWarning(true);
+      toast.warning('Conversation is getting long.', {
+        description: 'Consider exporting or starting a new session to avoid storage limits.',
+        duration: 8000,
+      });
+    } else if (messages.length < warningThreshold && showLengthWarning) {
+      setShowLengthWarning(false);
+    }
+  }, [messages, showLengthWarning]);
   const handleSwitchSession = useCallback(async (sessionId: string) => {
     chatService.switchSession(sessionId);
     setCurrentSessionId(sessionId);
@@ -122,7 +135,7 @@ export function HomePage() {
       await loadSessions();
     }
     const activeAgents = agents.filter(a => a.isActive).sort((a, b) => (a.role === 'Primary' ? -1 : b.role === 'Primary' ? 1 : 0));
-    const prunedHistory = messages.slice(-10).map(m => `${m.agentName || m.role}: ${m.content}`).join('\nPrevious: ');
+    const prunedHistory = messages.slice(-15).map(m => `${m.agentName || m.role}: ${m.content}`).join('\nPrevious: ');
     try {
       for (const agent of activeAgents) {
         setAgents(prev => produce(prev, draft => {
@@ -162,14 +175,10 @@ export function HomePage() {
     setIsDrawerOpen(true);
   };
   const handleRetryMessage = (messageId: string) => {
-    // This is a simplified retry - for a full implementation, you'd resend the original prompt.
-    // For now, we'll just remove the error and let the user try again.
     setMessages(prev => prev.filter(m => m.id !== messageId));
     toast.info("Please try sending your message again.");
   };
   const handleRetrySummary = () => {
-    // This would trigger a re-summarization call in a real scenario.
-    // For now, it's a placeholder.
     toast.info("Retrying summary generation...");
   };
   return (
@@ -202,6 +211,7 @@ export function HomePage() {
                 input={input}
                 isProcessing={isProcessing}
                 showLimitsNotice={showLimitsNotice}
+                showLengthWarning={showLengthWarning}
                 messagesEndRef={messagesEndRef}
                 onNewSession={handleNewSession}
                 onSwitchSession={handleSwitchSession}

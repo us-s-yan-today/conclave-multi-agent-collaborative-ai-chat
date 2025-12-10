@@ -24,6 +24,7 @@ interface CenterPanelProps {
   input: string;
   isProcessing: boolean;
   showLimitsNotice: boolean;
+  showLengthWarning: boolean;
   messagesEndRef: RefObject<HTMLDivElement>;
   onNewSession: () => void;
   onSwitchSession: (sessionId: string) => void;
@@ -47,6 +48,7 @@ export function CenterPanel({
   input,
   isProcessing,
   showLimitsNotice,
+  showLengthWarning,
   messagesEndRef,
   onNewSession,
   onSwitchSession,
@@ -100,6 +102,12 @@ export function CenterPanel({
       <ScrollArea className="flex-1 min-h-0 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
         <div className="p-4">
           <div className="w-full space-y-6">
+            {showLengthWarning && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 p-3 rounded-lg flex items-center gap-3 text-sm flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                <span className="flex-1">Conversation is long. To avoid storage limits, you can <Button variant="link" className="p-0 h-auto text-amber-800 dark:text-amber-300" onClick={() => setShowExportModal(true)}>Export</Button> or start a <Button variant="link" className="p-0 h-auto text-amber-800 dark:text-amber-300" onClick={onNewSession}>New Chat</Button>.</span>
+              </motion.div>
+            )}
             {showLimitsNotice && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 p-3 rounded-lg flex items-start gap-3 text-sm">
                 <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
@@ -113,7 +121,7 @@ export function CenterPanel({
                 <div className={`max-w-[85%] p-3 rounded-2xl ${msg.isError ? 'bg-destructive/10 border border-destructive/20' : (msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-none dark:bg-primary/90' : 'bg-muted rounded-bl-none dark:bg-muted/80')}`}>
                   {msg.role === 'assistant' && <p className="font-bold text-sm mb-1">{msg.agentName}</p>}
                   <p className="whitespace-pre-wrap">{msg.content}{isProcessing && messages[messages.length - 1].id === msg.id ? <span className="stream-cursor" /> : ''}</p>
-                  {msg.isError && <Button variant="outline" size="sm" onClick={() => onRetry(msg.id)} className="mt-2"><RotateCcw className="w-3 h-3 mr-2" />Retry</Button>}
+                  {msg.isError && <div className="mt-2"><p className="text-xs text-destructive mb-1">Storage limit may have been reached.</p><Button variant="outline" size="sm" onClick={() => onRetry(msg.id)}><RotateCcw className="w-3 h-3 mr-2" />Retry</Button></div>}
                   <p className="text-xs opacity-60 text-right mt-2">{formatTime(msg.timestamp)}</p>
                 </div>
                 {msg.role === 'user' && <User className="w-8 h-8 p-1.5 rounded-full bg-muted text-muted-foreground flex-shrink-0" />}
