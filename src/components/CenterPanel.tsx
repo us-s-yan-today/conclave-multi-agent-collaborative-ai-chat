@@ -92,8 +92,8 @@ export function CenterPanel({
           )}
         </div>
       </header>
-      <ScrollArea className="flex-1">
-        <div className="p-4" ref={messagesEndRef}>
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-4">
           <div className="max-w-4xl mx-auto space-y-6">
             {showLimitsNotice && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 p-3 rounded-lg flex items-start gap-3 text-sm">
@@ -131,6 +131,7 @@ export function CenterPanel({
               </div>
             )}
           </div>
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
       <div className="p-4 border-t flex-shrink-0">

@@ -156,7 +156,7 @@ export function HomePage() {
         <ThemeToggle />
         <div className={`${CONTAINER_WRAPPER} h-full`}>
           <div className={`${PAGE_SPACING} h-full`}>
-            <div className="grid md:grid-cols-[280px,1fr,340px] h-full gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-[300px,1fr,380px] h-full gap-4">
               {!isMobile && (
                 <LeftPanel
                   agents={agents}

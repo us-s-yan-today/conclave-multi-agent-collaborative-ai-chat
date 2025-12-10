@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { chatService, ExtendedMessage, getUsageMetrics } from '@/lib/chat';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 interface RightPanelProps {
   agents: Agent[];
   messages: ExtendedMessage[];
@@ -91,7 +91,7 @@ export function RightPanel({ agents, messages }: RightPanelProps) {
               <Card>
                 <CardHeader><CardTitle className="text-lg">Agent Participation</CardTitle></CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie data={analytics.agentUsageData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>{analytics.agentUsageData.map((entry, index) => <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${index + 1}))`} />)}</Pie>
                       <Tooltip />
