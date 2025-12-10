@@ -79,13 +79,13 @@ export function RightPanel({ agents, messages, onRetrySummary }: RightPanelProps
             <CardContent className="flex-1 flex flex-col gap-4 min-h-0 text-sm">
               <div className="flex-1 flex flex-col min-h-0">
                 <h3 className="font-semibold mb-2">Live Summary</h3>
-                <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 text-muted-foreground">
+                <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 text-muted-foreground scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                   {isSummarizing && !summary ? <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /><Skeleton className="h-4 w-3/4" /></div> : <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>{summary || 'Auto-summary will appear here.'}</motion.p>}
                 </ScrollArea>
                 {hasSummaryError && <Button variant="outline" size="sm" onClick={onRetrySummary} className="mt-2 w-full">Retry Summary</Button>}
               </div>
               <Separator />
-              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2 flex items-center gap-2"><ListTodo className="w-4 h-4" />Action Items</h3>{actionItems.length > 0 ? <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 space-y-2">{actionItems.map((item, index) => (<div key={index} className="flex items-center gap-2"><span>{item}</span></div>))}</ScrollArea> : <div className="text-muted-foreground text-center py-4 bg-muted/50 rounded-md">No action items.</div>}</div>
+              <div className="flex-1 flex flex-col min-h-0"><h3 className="font-semibold mb-2 flex items-center gap-2"><ListTodo className="w-4 h-4" />Action Items</h3>{actionItems.length > 0 ? <ScrollArea className="flex-1 min-h-0 bg-muted/50 rounded-md p-3 space-y-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">{actionItems.map((item, index) => (<div key={index} className="flex items-center gap-2"><span>{item}</span></div>))}</ScrollArea> : <div className="text-muted-foreground text-center py-4 bg-muted/50 rounded-md">No action items.</div>}</div>
             </CardContent>
           </Card>
         </TabsContent>
