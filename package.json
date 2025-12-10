@@ -1,5 +1,5 @@
 {
-  "name": "conclave-ai-jdo8_-f02p3lksar071wv",
+  "name": "vite-cfagents-runner",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,8 +9,7 @@
     "lint": "eslint --cache -f json --quiet .",
     "preview": "bun run build && vite preview --host 0.0.0.0 --port ${PORT:-4173}",
     "deploy": "bun run build && wrangler deploy",
-    "cf-typegen": "wrangler types",
-    "prepare": "bun .bootstrap.js || true"
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250807.0",
@@ -73,6 +72,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.60.0",
     "react-hotkeys-hook": "^5.1.0",
+    "react-intersection-observer": "^9.0.0",
     "react-resizable-panels": "^3.0.3",
     "react-router-dom": "6.30.0",
     "react-select": "^5.10.2",
