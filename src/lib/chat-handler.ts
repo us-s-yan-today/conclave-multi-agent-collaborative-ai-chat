@@ -1,0 +1,59 @@
+import type { Message, ToolCall } from '../../worker/types';
+import { AIProvider, ProviderConfig } from './providers/base-provider';
+import { ProviderFactory } from './providers/provider-factory';
+
+/**
+ * ChatHandler - Handles all chat-related operations in the browser
+ * Supports multiple AI providers (OpenAI, Gemini, etc.)
+ */
+export class ChatHandler {
+  private provider: AIProvider;
+  private model: string;
+  private apiConfig: ProviderConfig;
+  private systemPrompt?: string;
+  private personality?: string;
+
+  constructor(model: string, apiConfig: ProviderConfig, systemPrompt?: string, personality?: string) {
+    this.model = model;
+    this.apiConfig = apiConfig;
+    this.systemPrompt = systemPrompt;
+    this.personality = personality;
+    this.provider = this.createProvider();
+  }
+
+  private createProvider(): AIProvider {
+    return ProviderFactory.createProvider(this.apiConfig);
+  }
+
+  /**
+   * Process a user message and generate AI response
+   */
+  async processMessage(
+    message: string,
+    conversationHistory: Message[],
+    onChunk?: (chunk: string) => void
+  ): Promise<{
+    content: string;
+    toolCalls?: ToolCall[];
+  }> {
+    return await this.provider.processMessage(
+      message,
+      conversationHistory,
+      this.model,
+      onChunk,
+      this.systemPrompt,
+      this.personality
+    );
+  }
+
+  /**
+   * Update the model and API configuration for this chat handler
+   */
+  updateModel(newModel: string, newApiConfig: ProviderConfig, systemPrompt?: string, personality?: string): void {
+    this.model = newModel;
+    this.apiConfig = newApiConfig;
+    this.systemPrompt = systemPrompt;
+    this.personality = personality;
+    this.provider = this.createProvider();
+  }
+}

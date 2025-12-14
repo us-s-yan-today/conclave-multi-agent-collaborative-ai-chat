@@ -59,9 +59,11 @@ export function DemoPage() { // Don't touch this exporting, Its a named export
   const loadCurrentSession = useCallback(async () => {
     const response = await chatService.getMessages();
     if (response.success && response.data) {
+      const visibleMessages = response.data.messages.filter(m => m.visibleInChat !== false);
       setChatState(prev => ({
         ...prev,
         ...response.data,
+        messages: visibleMessages,
         sessionId: chatService.getSessionId() // Ensure sessionId is synced
       }));
     }
@@ -245,63 +247,67 @@ export function DemoPage() { // Don't touch this exporting, Its a named export
       </motion.div>
       
       <Card className="max-w-4xl mx-auto h-[60vh] flex flex-col relative z-10 backdrop-blur-xl bg-white/10 dark:bg-black/20 border-white/20 shadow-2xl">
-        <div className="p-4 border-b flex items-center gap-4">
-          <motion.div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-            <Bot className="w-4 h-4 text-white" />
-          </motion.div>
-          <h2 className="font-display font-bold text-xl">Mini Orange</h2>
-          
-          <Button onClick={() => setShowSessions(!showSessions)} variant="outline" size="sm">
-            Sessions ({sessions.length}){hasUnsavedSession && ' •'}
-          </Button>
-          
-          {showSessions && (
-            <div className="flex items-center gap-2">
-              <Select value={chatState.sessionId} onValueChange={handleSwitchSession}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select session" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions.map((session) => (
-                    <SelectItem key={session.id} value={session.id}>
-                      {session.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {sessions.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleClearAllSessions}
-                  title="Clear all sessions"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </Button>
-              )}
+        <div className="p-4 border-b flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <motion.div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
+              <Bot className="w-4 h-4 text-white" />
+            </motion.div>
+            <h2 className="font-display font-bold text-xl flex-shrink-0">Mini Orange</h2>
+            
+            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={handleNewSession} title="New session">
+                New Chat
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleClear} title="Clear conversation">
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
-          )}
-
-          <Select value={chatState.model} onValueChange={handleModelChange}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODELS.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </div>
           
-          <div className="flex gap-2 ml-auto">
-            <Button variant="outline" size="sm" onClick={handleNewSession} title="New session">
-              New Chat
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={() => setShowSessions(!showSessions)} variant="outline" size="sm">
+              Sessions ({sessions.length}){hasUnsavedSession && ' •'}
             </Button>
-            <Button variant="outline" size="icon" onClick={handleClear} title="Clear conversation">
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            
+            {showSessions && (
+              <>
+                <Select value={chatState.sessionId} onValueChange={handleSwitchSession}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessions.map((session) => (
+                      <SelectItem key={session.id} value={session.id}>
+                        {session.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {sessions.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleClearAllSessions}
+                    title="Clear all sessions"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                )}
+              </>
+            )}
+
+            <Select value={chatState.model} onValueChange={handleModelChange}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODELS.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         

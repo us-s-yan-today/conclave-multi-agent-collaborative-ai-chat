@@ -20,6 +20,14 @@ export interface Message {
   content: string;
   timestamp: number;
   id: string;
+  /**
+   * Whether this message should be shown in the chat UI. Defaults to true.
+   */
+  visibleInChat?: boolean;
+  /**
+   * Whether this message should be part of the model conversation history. Defaults to true.
+   */
+  includeInHistory?: boolean;
   toolCalls?: ToolCall[];
 }
 
