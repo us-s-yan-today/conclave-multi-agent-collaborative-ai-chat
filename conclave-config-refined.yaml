@@ -299,7 +299,7 @@ apiConfigs:
     name: My Gemini
     type: gemini
     baseURL: https://generativelanguage.googleapis.com/v1
-    endpoint: /v1/models/{model}:generateContent
+    endpoint: /models/{model}:generateContent
     apiKey: YOUR_API_KEY_HERE
     isValidated: false
     models:
