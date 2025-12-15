@@ -89,6 +89,7 @@ function watchDependenciesPlugin() {
 export default ({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd());
   return defineConfig({
+    base: '/', // Ensure assets are loaded from root path for static hosting
     plugins: [react(), watchDependenciesPlugin()],
     build: {
       minify: true,
